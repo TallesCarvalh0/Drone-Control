@@ -17,6 +17,7 @@
      ```
    - Substitua o arquivo `empty.world` pelo arquivo de mundo desejado que está no diretório `worlds`.
    - Renomeie o arquivo de mundo para `empty.world` para que ele seja reconhecido como padrão na simulação.
+   - Certifique-se também de configurar a textura do alvo na pasta `source`.
 
 ## Iniciando a Simulação
 
