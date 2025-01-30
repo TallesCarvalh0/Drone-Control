@@ -96,6 +96,12 @@ pip install opencv-python PyGObject
 
 Essa configuração permite integrar os feeds do Gazebo com OpenCV para processamento e análise avançados de visão computacional.
 
+- No caso de não funcionamento da imagem, verificar se o modelo iris_downward_depth_camera localizado no caminho abaixo é o mesmo do que está no diretório `models`.
+```bash
+PX4-Autopilot/Tools/simulation/gazebo-classic/sitl_gazebo-classic/models/iris_downward_depth_camera
+```
+
+
 ## Controlador do Drone com MAVSDK
 
 ### Visão Geral do Script
