@@ -1,162 +1,223 @@
-# Simulação com Gazebo Classic e Integração com PX4 e Câmera
+# Drone-Control
 
-## Tabela de Conteúdo
+Posicionamento assistido por visão computacional para VANTs: conversão de
+seleção do operador em referência de deslocamento para inspeção de linhas
+de transmissão.
 
-- [Instruções de Configuração](#instrucoes-de-configuracao)
-- [Iniciando a Simulação](#iniciando-a-simulacao)
-- [Acessando o Feed da Câmera](#acessando-o-feed-da-camera)
-- [Integração com OpenCV](#integracao-com-opencv)
-- [Controlador do Drone com MAVSDK](#controlador-do-drone-com-mavsdk)
+Código e material de simulação do Trabalho de Conclusão de Curso em
+Engenharia Mecatrônica (Universidade Federal de Uberlândia, 2026).
 
-## Instruções de Configuração
+## Conteúdo
 
-1. **Configurar o Mundo no Gazebo:**
-   - Vá até o seguinte diretório na sua instalação do PX4:
-     ```bash
-     PX4-Autopilot/Tools/simulation/gazebo-classic/sitl_gazebo-classic/worlds
-     ```
-   - Substitua o arquivo `empty.world` pelo arquivo de mundo desejado que está no diretório `worlds`.
-   - Renomeie o arquivo de mundo para `empty.world` para que ele seja reconhecido como padrão na simulação.
-   - Certifique-se também de configurar a textura do alvo na pasta `source`.
+- [O que o sistema faz](#o-que-o-sistema-faz)
+- [Resultados](#resultados)
+- [Estrutura do repositório](#estrutura-do-repositório)
+- [Ambiente](#ambiente)
+- [Configuração da simulação](#configuração-da-simulação)
+- [Dependências](#dependências)
+- [Execução](#execução)
+- [Recepção do vídeo](#recepção-do-vídeo)
+- [Parâmetros do controlador](#parâmetros-do-controlador)
+- [Limitações](#limitações)
 
-## Iniciando a Simulação
+## O que o sistema faz
 
-Para iniciar a simulação com uma câmera de profundidade voltada para baixo, rode o seguinte comando no terminal:
+O operador clica sobre um ponto na imagem de uma câmera orientada para o
+solo. O desvio medido em pixels entre esse ponto e o centro do quadro é
+convertido em deslocamento métrico por uma relação calibrada entre a
+densidade de pixels e a altura de observação. Esse deslocamento é somado à
+posição corrente do veículo, estabelecendo uma referência absoluta no
+referencial local NED, e um controlador proporcional com saturação conduz a
+aeronave até ela.
 
-```bash
-make px4_sitl gazebo-classic_iris_downward_depth_camera
-```
+A referência de deslocamento é obtida da imagem, e não de coordenadas
+fornecidas por sistemas de navegação por satélite. O GNSS permanece em uso
+na realimentação da malha, por meio da estimativa de posição do controlador
+de voo.
 
-## Acessando o Feed da Câmera
+## Resultados
 
-### QGroundControl
+Campanha de 30 ensaios em simulação, com altitudes de operação e
+afastamentos iniciais sorteados de distribuições uniformes declaradas, sob
+semente fixa. Vinte e nove concluíram as duas fases.
 
-O feed da câmera pode ser acessado direto pelo QGroundControl, sem precisar configurar nada.
+| Métrica | Valor |
+|---|---|
+| REQM no ponto de pouso | 0,158 m |
+| REQM ao final do alinhamento | 0,098 m |
+| Erro máximo no ponto de pouso | 0,357 m |
+| Tempo mediano por operação | 30,3 s |
 
-### Integração com OpenCV
+A decomposição do erro atribui 0,098 m ao método proposto e 0,148 m à
+manobra de descida acrescentada ao roteiro de ensaio, que não integra o
+método.
 
-Você também pode acessar o feed usando a biblioteca OpenCV com um script disponível no projeto.
+## Estrutura do repositório
 
-## Integração com OpenCV
+    Scripts/
+        Controller.py      interface do operador e laço de controle
+        ensaios.py         campanha automatizada (modos 'solo' e 'condutor')
+        graficos.py        gera as figuras e a tabela de métricas
+        calibracao.py      procedimento de calibração da densidade de pixels
+        gazebo_opencv.py   recepção do fluxo de vídeo (GStreamer/RTP)
+    Models/                modelo do veículo com a câmera acrescentada
+    Worlds/                cenário de simulação da linha de transmissão
+    ensaios/               dados brutos da campanha
+    calibracao.csv         medidas do ensaio de calibração
+    calibracao_imgs/       quadros registrados durante a calibração
 
-### Detalhes do Script
+## Ambiente
 
-O script que acessa a câmera está no diretório `SCRIPTS` e se chama `gazebo_opencv.py`.
+Versões empregadas nos ensaios reportados:
 
-### Como Funciona
+| Componente | Versão |
+|---|---|
+| Sistema operacional | Ubuntu 22.04.5 LTS |
+| Plataforma de execução | WSL2 sobre Windows |
+| Kernel | 6.18.33.2-microsoft-standard-WSL2 |
+| Simulador | Gazebo Classic 11.10.2 |
+| Firmware | PX4-Autopilot v1.18.0-beta1-817-g7c8d6daca9 |
+| Biblioteca de controle | MAVSDK-Python 3.17.4 |
 
-O script usa GStreamer para capturar e processar os frames de vídeo da simulação no Gazebo. Abaixo, um resumo do que ele faz:
+### Pontos que não decorrem da instalação padrão
 
-1. **Inicialização:**
-   - Configura o pipeline do GStreamer para receber o vídeo na porta `5600`.
-   - Define codecs para decodificar o vídeo bruto no formato BGR compatível com OpenCV.
+**Distribuição.** A documentação do PX4 indica o Ubuntu 20.04 para uso com
+o Gazebo Classic, versão não mais disponível no catálogo do WSL. A
+instalação foi feita sobre o Ubuntu 22.04, cujo script de configuração do
+PX4 instala por padrão o Gazebo Harmonic. O Gazebo Classic foi instalado
+manualmente em seguida.
 
-2. **Pipeline do GStreamer:**
-   - Captura vídeo por UDP.
-   - Faz parsing e decodificação H.264.
-   - Converte para BGR.
-   - Configura um sink para processar os frames.
+**MAVSDK.** A partir da versão 4 o pacote `mavsdk` passou a designar a
+ligação nativa, cuja interface difere da utilizada aqui. A versão deve ser
+fixada abaixo de 4.
 
-3. **Captura de Frames:**
-   - Extrai os frames com a função `callback` conectada ao evento `new-sample`.
-   - Converte os dados do GStreamer para um array numpy compatível com OpenCV.
+## Configuração da simulação
 
-4. **Salvamento de Frames:**
-   - A função `save_frame()` permite salvar o frame atual com um nome único.
+### Cenário
 
-5. **Interação com o Usuário:**
-   - Mostra o feed de vídeo em uma janela.
-   - Pressione `Esc` para sair ou `s` para salvar o frame atual.
+O sistema de compilação do PX4 não gera automaticamente um alvo de execução
+para arquivos de cenário adicionados ao diretório correspondente. Por isso o
+cenário deste repositório substitui o arquivo vazio distribuído com a
+plataforma:
 
-### Executando o Script
+1. Vá até o diretório de cenários da sua instalação do PX4:
 
-Para rodar o script, use:
+       PX4-Autopilot/Tools/simulation/gazebo-classic/sitl_gazebo-classic/worlds
 
-```bash
-python gazebo_opencv.py
-```
+2. Substitua o `empty.world` pelo arquivo de `Worlds/` deste repositório,
+   mantendo o nome `empty.world`, para que seja carregado como padrão.
 
-### Funções Principais
-- **`gst_to_opencv(sample)`**: Converte o buffer do GStreamer para um array numpy compatível com OpenCV.
-- **`frame()`**: Retorna o frame de vídeo atual.
-- **`frame_available()`**: Verifica se há um frame disponível.
-- **`save_frame()`**: Salva o frame atual no caminho especificado.
+3. Configure a textura do alvo na pasta `source`.
 
-### Dependências
+### Modelo do veículo
 
-Instale as bibliotecas necessárias com:
+O modelo distribuído com o PX4 não serve: o sensor de profundidade nele
+declarado publica as imagens apenas no barramento interno do simulador, sem
+transmissão para consumo externo. O modelo deste repositório acrescenta um
+sensor de câmera em cores com transmissão por RTP, com o mesmo campo de
+visão e a mesma resolução do original: 1,5010 rad, 848 x 480 pixels, 10 Hz,
+H.264 sobre RTP.
 
-```bash
-pip install opencv-python PyGObject
-```
+Se a imagem não funcionar, verifique se o modelo em
 
-### Notas de Uso
-- Pressione `Esc` para sair.
-- Pressione `s` para salvar o frame atual.
+    PX4-Autopilot/Tools/simulation/gazebo-classic/sitl_gazebo-classic/models/iris_downward_depth_camera
 
-Essa configuração permite integrar os feeds do Gazebo com OpenCV para processamento e análise avançados de visão computacional.
+é o mesmo que está em `Models/`.
 
-- No caso de não funcionamento da imagem, verificar se o modelo iris_downward_depth_camera localizado no caminho abaixo é o mesmo do que está no diretório `models`.
-```bash
-PX4-Autopilot/Tools/simulation/gazebo-classic/sitl_gazebo-classic/models/iris_downward_depth_camera
-```
+## Dependências
 
+    pip install 'mavsdk<4' opencv-python numpy matplotlib PyGObject
 
-## Controlador do Drone com MAVSDK
+O `matplotlib` é necessário apenas para `graficos.py`, e o `numpy` apenas
+para `ensaios.py`. O `PyGObject` atende ao GStreamer, usado por
+`gazebo_opencv.py`.
 
-### Visão Geral do Script
+## Execução
 
-O script `controller.py` controla um drone com a biblioteca MAVSDK, permitindo navegação autônoma com base em cliques no vídeo transmitido pela câmera.
+### Iniciar a simulação
 
-### Estrutura do Script
+    make px4_sitl gazebo-classic_iris_downward_depth_camera
 
-1. **Classe `VideoStream`:**
-   - Mostra o feed de vídeo em uma interface gráfica com `customtkinter`.
-   - Permite capturar coordenadas de pixels clicadas na tela e salvar a posição relativa ao centro do frame.
+### Operação assistida
 
-2. **Função `pixel2meters()`:**
-   - Converte a posição em pixels para metros com base na altura atual do drone.
+Abre a janela de vídeo e aguarda o clique do operador. O controlador
+conecta-se em `udpin://0.0.0.0:14540`.
 
-3. **Função `get_position()`:**
-   - Obtém a posição atual do drone em coordenadas NED (North, East, Down).
+    python3 Scripts/Controller.py
 
-4. **Função `main()`:**
-   - Conecta com o drone e inicia o controle offboard.
-   - Captura a posição clicada pelo usuário e converte para distância em metros.
-   - Implementa um controlador proporcional para mover o drone até o ponto desejado.
+Encerre com `q` ou `Esc` na janela de vídeo. Evite Ctrl+C: o sinal encerra o
+processo auxiliar do MAVSDK antes que o pouso possa ser comandado.
 
-### Explicação do Controlador Proporcional
+### Campanha de ensaios
 
-O controlador ajusta a posição do drone com base no erro entre a posição atual e a desejada. A fórmula básica é:
+Ajuste `MODO` no topo do arquivo para `'solo'` (campanha estatística, com
+pouso sobre o alvo) ou `'condutor'` (aproximação a um condutor, com descida
+até uma folga acima do cabo).
 
-```python
-v_x = Kp * erro_pixel_x
-```
+    python3 Scripts/ensaios.py
 
-Onde:
-- `Kp` é o ganho proporcional.
-- `erro_pixel_x` é a diferença entre a posição atual e a posição alvo.
+Em ambos os modos a seleção do operador é obtida por segmentação da imagem,
+e não calculada a partir das coordenadas do mundo. A distinção é essencial:
+calcular o pixel a partir da geometria conhecida usaria a calibração para
+gerar a seleção e novamente para convertê-la, cancelando-a.
 
-### Executando o Script
+### Figuras e tabela de métricas
 
-Para rodar o controlador, use:
+Lê os dados dos ensaios e escreve PDFs vetoriais prontos para inclusão em
+LaTeX. As figuras são legíveis em impressão monocromática: as séries se
+distinguem por estilo de traço e marcador, nunca por cor.
 
-```bash
-python controller.py
-```
+    python3 Scripts/graficos.py                  # usa ./ensaios e ./figuras
+    python3 Scripts/graficos.py ensaios figuras
 
-### Dependências
+## Recepção do vídeo
 
-Instale os pacotes necessários com:
+O módulo `gazebo_opencv.py` monta um pipeline GStreamer que recebe o fluxo
+transmitido pelo simulador na porta 5600, faz o parsing e a decodificação
+H.264 e converte os quadros para BGR, formato consumido pelo OpenCV. Cada
+quadro decodificado é disponibilizado à aplicação como uma matriz de dados
+de imagem.
 
-```bash
-pip install asyncio mavsdk opencv-python Pillow customtkinter
-```
+Funções principais:
 
-### Observações
+- `frame()` — retorna o quadro de vídeo atual
+- `frame_available()` — informa se há quadro disponível
+- `save_frame()` — salva o quadro atual
 
-- O controlador ajusta continuamente a velocidade do drone até que a diferença entre a posição atual e a desejada seja menor que 0.01 metros.
-- As funções de captura de vídeo e controle do drone são executadas em threads paralelas, garantindo a responsividade do sistema.
+O fluxo também pode ser visualizado diretamente pelo QGroundControl, sem
+configuração adicional.
 
-Essa solução complementa a simulação, permitindo controlar o drone de forma precisa em ambientes simulados.
+## Parâmetros do controlador
 
+| Parâmetro | Valor | Origem |
+|---|---|---|
+| Ganho proporcional | 0,3 | ajuste empírico em simulação |
+| Saturação da velocidade horizontal | 1,5 m/s | ajuste empírico em simulação |
+| Tolerância de convergência | 2 pixels, com piso de 0,05 m | ajuste empírico em simulação |
+| Período do laço | 0,25 s | projeto |
+| Calibração | rho(h) = 461,7 / h | ensaio de calibração |
+
+O comando de velocidade é proporcional ao erro **em metros**, e não ao erro
+em pixels: a conversão pela calibração ocorre antes da lei de controle. A
+saturação limita o módulo do vetor de velocidade horizontal, com fator de
+redução comum aos dois eixos, de modo que a direção do comando é preservada.
+
+A calibração foi determinada experimentalmente com alvo de 2,00 m de lado,
+em oito alturas entre 5 e 20 m, com quinze amostras por altura. O ajuste de
+potência livre sobre os mesmos dados forneceu rho(h) = 453,0 h^(-0,9902),
+confirmando o expoente unitário exigido pela projeção perspectiva. A
+constante obtida difere em 1,5 % da prevista analiticamente a partir dos
+parâmetros ópticos declarados da câmera.
+
+## Limitações
+
+A validação foi conduzida integralmente em simulação. O modelo da câmera não
+incorpora distorção de lente e o cenário não reproduz perturbações
+atmosféricas nem os campos eletromagnéticos de uma linha energizada.
+
+A conversão pressupõe que o ponto selecionado está em um plano cuja altura
+em relação à câmera é conhecida. Nos ensaios esse plano é o solo.
+
+O pouso não integra o método: a descida empregada nos ensaios é um comando
+de velocidade vertical em modo offboard, sem projeto ou sintonia, adotado
+apenas para tornar mensurável o erro no ponto de pouso.
