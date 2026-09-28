@@ -1,0 +1,64 @@
+========================================================================
+METRICAS CONSOLIDADAS  --  modo: solo
+========================================================================
+Semente da amostragem                 : 20260926
+Altitude sorteada em                  : [5.0, 18.0] m (uniforme)
+Afastamento inicial sorteado em       : [1.0, 6.0] m (uniforme, limitado a 0.65 da meia-largura do quadro)
+Ensaios executados                    : 30
+Ensaios bem-sucedidos                 : 29
+Taxa de sucesso                       : 96.7 %
+
+Tempo medio total                     : 38.34 +- 22.10 s
+Tempo medio da fase horizontal        : 24.36 s
+Tempo medio da descida                : 13.98 s
+
+-- custo de execucao do laco --
+Periodo imposto por projeto           : 250.0 ms
+Periodo medio medido                  : 265.23 ms
+Consulta de telemetria, media         : 15.111 ms
+Calculo da lei de controle, media     : 0.0083 ms
+Deteccao na imagem (uma por selecao)  : 0.838 ms
+
+-- condicao de partida dos ensaios --
+Rapidez ao capturar o quadro, media   : 0.0470 m/s
+Rapidez ao capturar o quadro, maxima  : 0.0764 m/s
+Desvio de altitude, media dos modulos : 0.032 m
+Desvio de altitude, maximo em modulo  : 0.070 m
+
+-- erro horizontal, contra o alvo verdadeiro --
+Ao fim do alinhamento, media          : 0.0895 +- 0.0400 m
+Ao fim do alinhamento, REQM           : 0.0978 m
+No ponto de pouso, media              : 0.1354 +- 0.0835 m
+No ponto de pouso, REQM               : 0.1584 m
+No ponto de pouso, maximo             : 0.3568 m
+
+REQM contra a referencia calculada    : 0.1484 m
+
+-- componentes do erro no ponto de pouso --
+Norte, media                          : +0.0572 +- 0.0988 m
+Leste, media                          : +0.0148 +- 0.1122 m
+========================================================================
+
+O erro contra o alvo verdadeiro e medido em relacao as coordenadas
+do alvo no arquivo do mundo, e inclui projecao, calibracao e
+controle. O erro contra a referencia calculada compara a posicao
+medida com a referencia que o proprio sistema estabeleceu, isolando
+o desempenho do controlador. A diferenca entre os dois quantifica a
+parcela do erro que nao provem do controle.
+
+O periodo do laco e imposto por PERIODO_COMANDO_S e nao mede custo
+computacional. O custo esta decomposto nas tres linhas seguintes:
+a consulta de telemetria, o calculo da lei de controle e a deteccao
+na imagem, esta ultima executada uma vez por selecao do operador e
+nao a cada iteracao.
+
+As componentes norte e leste do erro sao reportadas com sinal para
+que um eventual vies sistematico, que a norma do erro esconde, fique
+visivel.
+
+A rapidez ao capturar o quadro verifica a hipotese sob a qual a
+conversao e valida: o veiculo parado. Como a densidade de pixels
+varia com o inverso da altitude, uma altitude ainda em mudanca
+produz um erro de escala proporcional a todo o deslocamento
+calculado. Valores acima de 0.08 m/s indicam que o criterio de
+assentamento nao foi atendido dentro do tempo maximo.
